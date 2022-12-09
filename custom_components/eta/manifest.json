@@ -1,6 +1,6 @@
 {
-  "domain": "eta_heating",
-  "name": "ETA Heating",
+  "domain": "eta",
+  "name": "ETA",
   "documentation": "todo",
   "dependencies": [],
   "codeowners": [],
