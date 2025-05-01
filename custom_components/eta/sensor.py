@@ -52,7 +52,17 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
 
     sensors = []
     for sensor_config in sensors_config:
-        sensors.append(ETASensor(eta, sensor_config))
+        try:
+            # Validate sensor_config against SENSOR_SCHEMA
+            validated_config = SENSOR_SCHEMA(sensor_config)
+            sensors.append(ETASensor(eta, validated_config))
+        except vol.Invalid as e:
+            _LOGGER.error(f"Invalid sensor configuration: {e}")
+            continue
+
+    if not sensors:
+        _LOGGER.error("No valid sensors configured, platform setup failed")
+        return
 
     add_entities(sensors, True)
 
