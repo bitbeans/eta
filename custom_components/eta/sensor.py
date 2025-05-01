@@ -7,7 +7,6 @@ from homeassistant.components.sensor import PLATFORM_SCHEMA
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
-from .sensors_default import SENSOR_DEFAULTS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +46,8 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     # Use default sensors from sensors_default.py if no sensors are specified
     sensors_config = config.get(CONF_SENSORS)
     if not sensors_config:
-        sensors_config = SENSOR_DEFAULTS
+        from .sensors_default import SENSOR_DEFAULT
+        sensors_config = SENSOR_DEFAULT
         _LOGGER.debug("No sensors specified in config, using default sensors from sensors_default.py")
 
     sensors = []
