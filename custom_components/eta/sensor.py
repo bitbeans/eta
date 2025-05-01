@@ -197,7 +197,9 @@ class ETASensor(SensorEntity):
             self._state = None
             return
 
-        value = data.find(".//value")
+        # Handle XML namespace for ETA API
+        namespaces = {'eta': 'http://www.eta.co.at/rest/v1'}
+        value = data.find(".//eta:value", namespaces)
         if value is None:
             _LOGGER.error("[ETA] No <value> element found in XML for sensor %s", self._attr_name)
             self._state = None
