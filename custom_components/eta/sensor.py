@@ -96,7 +96,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         _LOGGER.debug("[ETA] Sensors added successfully")
 
         # Register service to set ETA values (temporarily commented out for debugging)
-        """
+        
         def set_value_service(call):
             uri = call.data.get('uri')
             value = call.data.get('value')
@@ -116,8 +116,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         except Exception as e:
             _LOGGER.error("[ETA] Failed to register eta.set_value service: %s", str(e))
             raise
-        """
-
+        
         _LOGGER.debug("[ETA] ETA platform setup completed successfully")
     except Exception as e:
         _LOGGER.error("[ETA] Failed to set up ETA platform: %s", str(e))
