@@ -46,8 +46,8 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     # Use default sensors from sensors_default.py if no sensors are specified
     sensors_config = config.get(CONF_SENSORS)
     if not sensors_config:
-        from .sensors_default import SENSOR_DEFAULT
-        sensors_config = SENSOR_DEFAULT
+        from .sensors_default import SENSORS_DEFAULT
+        sensors_config = SENSORS_DEFAULT
         _LOGGER.debug("No sensors specified in config, using default sensors from sensors_default.py")
 
     sensors = []
