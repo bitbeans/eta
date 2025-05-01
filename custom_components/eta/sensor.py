@@ -1,155 +1,154 @@
-"""
-Platform for ETA sensor integration in Home Assistant
-
-Help Links:
- Entity Source: https://github.com/home-assistant/core/blob/dev/homeassistant/helpers/entity.py
- SensorEntity derives from Entity https://github.com/home-assistant/core/blob/dev/homeassistant/components/sensor/__init__.py
-
-
-author hubtub2
-
-"""
-
-from __future__ import annotations
 import logging
-import os
-
 import requests
 import voluptuous as vol
-import xmltodict
-from lxml import etree
-from homeassistant.components.sensor import (
-    SensorDeviceClass,
-    SensorEntity,
-    SensorStateClass,
-    PLATFORM_SCHEMA,
-    ENTITY_ID_FORMAT
-)
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
+import xml.etree.ElementTree as ET
+from datetime import timedelta
+from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_SCAN_INTERVAL, CONF_USERNAME
 import homeassistant.helpers.config_validation as cv
-
-from homeassistant.helpers.entity import generate_entity_id
-
-# See https://github.com/home-assistant/core/blob/dev/homeassistant/const.py
-from homeassistant.const import (CONF_HOST, CONF_PORT)
-
-from .sensors_default import SENSORS_DEFAULT
+from homeassistant.util import Throttle
+from .sensors_default import SENSORS
 
 _LOGGER = logging.getLogger(__name__)
-VAR_PATH = "/user/var"
-MENU_PATH = "/user/menu"
 
-# See https://community.home-assistant.io/t/problem-with-scan-interval/139031
-PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
-    vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_PORT): cv.positive_int,
-    # vol.Optional(DEFAULT_NAME): cv.string,
-    # vol.Optional(CONF_TYPE): cv.string,
-    # vol.Optional(CONF_SCAN_INTERVAL): cv.time_period,
+CONF_POLLING = "polling"
+CONF_SENSORS = "sensors"
+
+MIN_TIME_BETWEEN_UPDATES = timedelta(seconds=30)
+
+SENSOR_SCHEMA = vol.Schema({
+    vol.Required('uri'): cv.string,
+    vol.Required('name'): cv.string,
+    vol.Optional('unit'): cv.string,
+    vol.Optional('scale'): cv.positive_int,
+    vol.Optional('decimals'): cv.positive_int,
 })
 
+PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
+    vol.Required(CONF_HOST): cv.string,
+    vol.Required(CONF_USERNAME): cv.string,
+    vol.Required(CONF_PASSWORD): cv.string,
+    vol.Required(CONF_NAME): cv.string,
+    vol.Optional(CONF_PORT, default=8080): cv.port,
+    vol.Optional(CONF_POLLING, default=30): cv.positive_int,
+    vol.Optional(CONF_SENSORS, default=[]): vol.All(cv.ensure_list, [SENSOR_SCHEMA]),
+})
 
-def get_base_url(
-        config: ConfigType,
-        context: str = ""
-) -> str:
-    return "".join(["http://", config.get(CONF_HOST), ":", str(config.get(CONF_PORT)), context])
+def setup_platform(hass, config, add_entities, discovery_info=None):
+    host = config[CONF_HOST]
+    port = config[CONF_PORT]
+    username = config[CONF_USERNAME]
+    password = config[CONF_PASSWORD]
+    name = config[CONF_NAME]
+    polling = config[CONF_POLLING]
 
+    eta = ETAHeater(host, port, username, password, name)
 
-def get_entity_name(
-        config: ConfigType,
-        uri: str
-) -> str:
-    ns = {'xsi': 'http://www.eta.co.at/rest/v1'}
-    # TODO: exception handling
-    data = requests.get(get_base_url(config, MENU_PATH), stream=True)
-    data.raw.decode_content = True
-    doc = etree.parse(data.raw)
-    for o in doc.iterfind('//xsi:object', namespaces=ns):
-        if o.attrib.get('uri') == uri:
-            return o.attrib.get('name')
-    return "unknown"
+    # Use default sensors from sensors_default.py if no sensors are specified
+    sensors_config = config.get(CONF_SENSORS)
+    if not sensors_config:
+        sensors_config = SENSORS
+        _LOGGER.debug("No sensors specified in config, using default sensors from sensors_default.py")
 
+    sensors = []
+    for sensor_config in sensors_config:
+        sensors.append(ETASensor(eta, sensor_config))
 
-def setup_platform(
-        hass: HomeAssistant,
-        config: ConfigType,
-        add_entities: AddEntitiesCallback,
-        discovery_info: DiscoveryInfoType | None = None
-) -> None:
-    """Set up the sensor platform."""
+    add_entities(sensors, True)
 
-    _LOGGER.info("ETA Integration - setup platform")
+    # Register service to set ETA values
+    def set_value_service(call):
+        uri = call.data.get('uri')
+        value = call.data.get('value')
+        try:
+            eta.set_eta_value(uri, value)
+            _LOGGER.info(f"Successfully set value for {uri} to {value}")
+        except Exception as e:
+            _LOGGER.error(f"Failed to set value for {uri}: {str(e)}")
 
-    add_entities([
-        EtaSensor(config, hass, sensor.get('name'), sensor.get('uri'), sensor.get('unit'), sensor.get('state_class'),
-                  sensor.get('device_class'), sensor.get('factor'))
-        for sensor in SENSORS_DEFAULT
-    ])
+    hass.services.register('eta', 'set_value', set_value_service, schema=vol.Schema({
+        vol.Required('uri'): cv.string,
+        vol.Required('value'): cv.string,
+    }))
 
-    try:
-        from .sensors_custom import SENSORS_CUSTOM
-        add_entities([
-            EtaSensor(config, hass, sensor.get('name'), sensor.get('uri'), sensor.get('unit'), sensor.get('state_class'),
-                      sensor.get('device_class'), sensor.get('factor'))
-            for sensor in SENSORS_CUSTOM
-        ])
-    except ImportError as error:
-        _LOGGER.info("ETA Integration - no custom sensors found")
+class ETAHeater:
+    def __init__(self, host, port, username, password, name):
+        self._host = host
+        self._port = port
+        self._username = username
+        self._password = password
+        self._name = name
+        self._base_url = f"http://{host}:{port}"
 
+    def get_data(self, uri):
+        try:
+            response = requests.get(
+                f"{self._base_url}{uri}",
+                auth=(self._username, self._password),
+                timeout=10
+            )
+            response.raise_for_status()
+            return ET.fromstring(response.content)
+        except Exception as e:
+            _LOGGER.error(f"Error fetching data from {uri}: {str(e)}")
+            return None
 
-class EtaSensor(SensorEntity):
-    """Representation of a Sensor."""
+    def set_eta_value(self, uri, value):
+        """Set a value for the given URI via POST request."""
+        try:
+            headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+            response = requests.post(
+                f"{self._base_url}{uri}",
+                auth=(self._username, self._password),
+                data={"value": value},
+                headers=headers,
+                timeout=10
+            )
+            response.raise_for_status()
+            _LOGGER.debug(f"Successfully set {uri} to {value}")
+        except Exception as e:
+            _LOGGER.error(f"Failed to set {uri} to {value}: {str(e)}")
+            raise
 
-    def __init__(self, config, hass, name, uri, unit=None, state_class=SensorStateClass.MEASUREMENT,
-                 device_class=SensorDeviceClass.TEMPERATURE, factor=1.0):
-        """
-        Initialize sensor.
-        
-        To show all values: http://192.168.178.75:8080/user/menu
-        
-        There are:
-          - entity_id - used to reference id, english, e.g. "eta_outside_temperature"
-          - name - Friendly name, e.g "Außentemperatur" in local language
-          - unique_id - globally unique id of sensor, e.g. "eta_11.123488_outside_temp", based on serial number
-        
-        """
-        _LOGGER.info("ETA Integration - init sensor")
+class ETASensor:
+    def __init__(self, eta, config):
+        self._eta = eta
+        self._uri = config['uri']
+        self._name = config['name']
+        self._unit = config.get('unit')
+        self._scale = config.get('scale', 1)
+        self._decimals = config.get('decimals', 0)
+        self._state = None
+        self._attributes = {}
 
-        self._attr_state_class = state_class
-        self._attr_device_class = device_class
-        name = name if name else get_entity_name(config, uri)
-        id = name.lower().replace(' ', '_')
-        self._attr_name = name  # friendly name - local language
-        self.entity_id = generate_entity_id(ENTITY_ID_FORMAT, "eta_" + id, hass=hass)
-        # self.entity_description = description
-        self._attr_native_unit_of_measurement = unit
-        self.uri = VAR_PATH + uri
-        self.factor = factor if factor else 1.0
-        self.host = config.get(CONF_HOST)
-        self.port = config.get(CONF_PORT)
+    @Throttle(MIN_TIME_BETWEEN_UPDATES)
+    def update(self):
+        data = self._eta.get_data(self._uri)
+        if data is None:
+            return
 
-        # This must be a unique value within this domain. This is done use serial number of device
-        serial1 = requests.get(get_base_url(config, VAR_PATH) + "/40/10021/0/0/12489")
-        serial2 = requests.get(get_base_url(config, VAR_PATH) + "/40/10021/0/0/12490")
+        value = data.find(".//value")
+        if value is not None:
+            try:
+                raw_value = float(value.text) / self._scale
+                self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
+                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+            except (ValueError, TypeError):
+                self._state = value.attrib.get('strValue', 'unknown')
+                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
 
-        # Parse
-        serial1 = xmltodict.parse(serial1.text)
-        serial1 = serial1['eta']['value']['@strValue']
-        serial2 = xmltodict.parse(serial2.text)
-        serial2 = serial2['eta']['value']['@strValue']
+    @property
+    def name(self):
+        return self._name
 
-        self._attr_unique_id = "eta" + "_" + serial1 + "." + serial2 + "." + name.replace(" ", "_")
+    @property
+    def state(self):
+        return self._state
 
-    def update(self) -> None:
-        """Fetch new state data for the sensor.
-        This is the only method that should fetch new data for Home Assistant.
-        TODO: readme: activate first: http://www.holzheizer-forum.de/attachment/28434-eta-restful-v1-1-pdf/
-        """
+    @property
+    def unit_of_measurement(self):
+        return self._unit
 
-        # REST GET
-        data = requests.get("http://" + self.host + ":" + str(self.port) + self.uri)
-        data = xmltodict.parse(data.text)
-        self._attr_native_value = round(int(data['eta']['value']['#text']) * self.factor / int(data['eta']['value']['@scaleFactor']), int(data['eta']['value']['@decPlaces']))
+    @property
+    def device_state_attributes(self):
+        return self._attributes

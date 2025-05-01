@@ -5,7 +5,7 @@
 @factor is mandatory
 """
 from homeassistant.components.sensor import SensorStateClass, SensorDeviceClass
-from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, UnitOfEnergy
+from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, UnitOfEnergy, UnitOfConductivity
 
 SENSORS_DEFAULT = [
     {
@@ -39,6 +39,10 @@ SENSORS_DEFAULT = [
     {
         "uri": "/40/10021/0/0/12016",
         "unit": UnitOfMass.KILOGRAMS
+    },
+    {
+        "uri": "/120/10601/0/0/12528",
+        "unit": UnitOfConductivity.PERCENTAGE,
     },
     {
         "name": "Gesamt Energieverbrauch",
