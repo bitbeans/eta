@@ -1,8 +1,12 @@
 """
-@name is mandatory, if not defined the original localized name of the variable will be used
-@uri is required
-@unit is mandatory
-@factor is mandatory
+Sensor configuration for ETA integration.
+- 'uri' is required: The API endpoint for the sensor (e.g., '/120/10601/0/0/12197').
+- 'name' is required: The display name of the sensor in Home Assistant.
+- 'unit' is optional: The unit of measurement (e.g., '°C', 'kW', '%'). Can be a string or Home Assistant unit enum.
+- 'factor' is optional: Scaling factor for the sensor value (default: 1.0).
+- 'decimals' is optional: Number of decimal places for the sensor value (default: 0).
+- 'device_class' is optional: Home Assistant device class (e.g., 'temperature', 'energy').
+- 'state_class' is optional: Home Assistant state class (e.g., 'measurement', 'total_increasing').
 """
 from homeassistant.components.sensor import SensorStateClass, SensorDeviceClass
 from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, UnitOfEnergy, PERCENTAGE
@@ -10,39 +14,66 @@ from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, Unit
 SENSORS_DEFAULT = [
     {
         "uri": "/120/10601/0/0/12197",
-        "unit": UnitOfTemperature.CELSIUS
+        "name": "Außentemperatur",
+        "unit": UnitOfTemperature.CELSIUS,
+        "factor": 1.0,
+        "decimals": 1,
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/40/10021/0/0/12077",
-        "unit": UnitOfPower.KILO_WATT
+        "name": "Angeforderte Leistung",
+        "unit": UnitOfPower.KILO_WATT,
+        "factor": 1.0,
+        "decimals": 2,
+        "device_class": SensorDeviceClass.POWER,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/40/10021/0/0/12006",
-        "unit": UnitOfTemperature.CELSIUS
+        "name": "Angeforderte Temperatur",
+        "unit": UnitOfTemperature.CELSIUS,
+        "factor": 1.0,
+        "decimals": 1,
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/40/10021/0/11109/0",
-        "unit": UnitOfTemperature.CELSIUS
+        "name": "Kessel",
+        "unit": UnitOfTemperature.CELSIUS,
+        "factor": 1.0,
+        "decimals": 1,
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/40/10021/0/11110/0",
-        "unit": UnitOfTemperature.CELSIUS
-    },
-    {
-        "uri": "/120/10101/0/11125/2121",
-        "unit": UnitOfTemperature.CELSIUS
+        "name": "Abgas",
+        "unit": UnitOfTemperature.CELSIUS,
+        "factor": 1.0,
+        "decimals": 1,
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/40/10201/0/0/12015",
-        "unit": UnitOfMass.KILOGRAMS
-    },
-    {
-        "uri": "/40/10021/0/0/12016",
-        "unit": UnitOfMass.KILOGRAMS
+        "name": "Pelletsvorrat",
+        "unit": UnitOfMass.KILOGRAMS,
+        "factor": 1.0,
+        "decimals": 0,
+        "device_class": SensorDeviceClass.WEIGHT,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "uri": "/120/10601/0/0/12528",
+        "name": "Puffer geladen",
         "unit": PERCENTAGE,
+        "factor": 1.0,
+        "decimals": 0,
+        "device_class": SensorDeviceClass.BATTERY,
+        "state_class": SensorStateClass.MEASUREMENT,
     },
     {
         "name": "Gesamt Energieverbrauch",
@@ -50,6 +81,7 @@ SENSORS_DEFAULT = [
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
-        "factor": 4.8
+        "factor": 4.8,
+        "decimals": 1,
     },
 ]

@@ -3,7 +3,7 @@ import requests
 import voluptuous as vol
 import xml.etree.ElementTree as ET
 from datetime import timedelta
-from homeassistant.components.sensor import PLATFORM_SCHEMA
+from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorStateClass, SensorDeviceClass
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
@@ -19,8 +19,10 @@ SENSOR_SCHEMA = vol.Schema({
     vol.Required('uri'): cv.string,
     vol.Required('name'): cv.string,
     vol.Optional('unit'): cv.string,
-    vol.Optional('scale'): cv.positive_int,
+    vol.Optional('factor'): cv.positive_float,
     vol.Optional('decimals'): cv.positive_int,
+    vol.Optional('device_class'): cv.string,
+    vol.Optional('state_class'): cv.string,
 })
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
@@ -128,8 +130,10 @@ class ETASensor:
         self._uri = config['uri']
         self._name = config['name']
         self._unit = config.get('unit')
-        self._scale = config.get('scale', 1)
+        self._factor = config.get('factor', 1.0)
         self._decimals = config.get('decimals', 0)
+        self._device_class = config.get('device_class')
+        self._state_class = config.get('state_class')
         self._state = None
         self._attributes = {}
 
@@ -142,7 +146,7 @@ class ETASensor:
         value = data.find(".//value")
         if value is not None:
             try:
-                raw_value = float(value.text) / self._scale
+                raw_value = float(value.text) / self._factor
                 self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
                 self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
             except (ValueError, TypeError):
@@ -159,7 +163,16 @@ class ETASensor:
 
     @property
     def unit_of_measurement(self):
-        return self._unit
+        # Handle enum-based units by converting to string if necessary
+        return str(self._unit) if self._unit else None
+
+    @property
+    def device_class(self):
+        return self._device_class
+
+    @property
+    def state_class(self):
+        return self._state_class
 
     @property
     def device_state_attributes(self):
