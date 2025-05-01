@@ -13,7 +13,7 @@ from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, Unit
 
 SENSORS_DEFAULT = [
     {
-        "uri": "/120/10601/0/0/12197",
+        "uri": "/user/var/120/10601/0/0/12197",
         "name": "Außentemperatur",
         "unit": UnitOfTemperature.CELSIUS,
         "factor": 1.0,
@@ -22,7 +22,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/40/10021/0/0/12077",
+        "uri": "/user/var/40/10021/0/0/12077",
         "name": "Angeforderte Leistung",
         "unit": UnitOfPower.KILO_WATT,
         "factor": 1.0,
@@ -31,7 +31,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/40/10021/0/0/12006",
+        "uri": "/user/var/40/10021/0/0/12006",
         "name": "Angeforderte Temperatur",
         "unit": UnitOfTemperature.CELSIUS,
         "factor": 1.0,
@@ -40,7 +40,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/40/10021/0/11109/0",
+        "uri": "/user/var/40/10021/0/11109/0",
         "name": "Kessel",
         "unit": UnitOfTemperature.CELSIUS,
         "factor": 1.0,
@@ -49,7 +49,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/40/10021/0/11110/0",
+        "uri": "/user/var/40/10021/0/11110/0",
         "name": "Abgas",
         "unit": UnitOfTemperature.CELSIUS,
         "factor": 1.0,
@@ -58,7 +58,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/40/10201/0/0/12015",
+        "uri": "/user/var/40/10201/0/0/12015",
         "name": "Pelletsvorrat",
         "unit": UnitOfMass.KILOGRAMS,
         "factor": 1.0,
@@ -67,7 +67,7 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "uri": "/120/10601/0/0/12528",
+        "uri": "/user/var/120/10601/0/0/12528",
         "name": "Puffer geladen",
         "unit": PERCENTAGE,
         "factor": 1.0,
@@ -86,7 +86,7 @@ SENSORS_DEFAULT = [
     },
     {
         "name": "Gesamt Energieverbrauch",
-        "uri": "/40/10021/0/0/12016",
+        "uri": "/user/var/40/10021/0/0/12016",
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
