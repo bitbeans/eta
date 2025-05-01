@@ -129,7 +129,7 @@ class ETASensor(SensorEntity):
         super().__init__()
         self._eta = eta
         self._uri = config['uri']
-        self._attr_name = config['name']
+        self._attr_name = f"ETA {config['name']}"
         self._attr_unique_id = f"eta_sensor_{config['uri'].replace('/', '_')}"
         self._attr_unit_of_measurement = str(config.get('unit')) if config.get('unit') else None
         self._attr_device_class = config.get('device_class')
