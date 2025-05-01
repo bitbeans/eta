@@ -87,7 +87,7 @@ class ETAHeater:
                 f"{self._base_url}{uri}",
                 auth=auth,
                 timeout=10
-           
+            )
             response.raise_for_status()
             return ET.fromstring(response.content)
         except Exception as e:
