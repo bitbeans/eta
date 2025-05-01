@@ -9,6 +9,7 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 
 _LOGGER = logging.getLogger(__name__)
+_LOGGER.debug("ETA integration module loaded")
 
 CONF_POLLING = "polling"
 CONF_SENSORS = "sensors"
