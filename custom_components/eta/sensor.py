@@ -136,15 +136,22 @@ class ETAHeater:
     def get_data(self, uri):
         try:
             auth = (self._username, self._password) if self._username and self._password else None
+            _LOGGER.debug("[ETA] Fetching data from URL: %s", f"{self._base_url}{uri}")
             response = requests.get(
                 f"{self._base_url}{uri}",
                 auth=auth,
                 timeout=10
             )
             response.raise_for_status()
-            return ET.fromstring(response.content)
-        except Exception as e:
+            _LOGGER.debug("[ETA] Received response: %s", response.text)
+            xml_data = ET.fromstring(response.text)
+            _LOGGER.debug("[ETA] Parsed XML: %s", ET.tostring(xml_data, encoding='unicode'))
+            return xml_data
+        except requests.exceptions.RequestException as e:
             _LOGGER.error("[ETA] Error fetching data from %s: %s", uri, str(e))
+            return None
+        except ET.ParseError as e:
+            _LOGGER.error("[ETA] Failed to parse XML from %s: %s", uri, str(e))
             return None
 
     def set_eta_value(self, uri, value):
@@ -152,6 +159,7 @@ class ETAHeater:
         try:
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
             auth = (self._username, self._password) if self._username and self._password else None
+            _LOGGER.debug("[ETA] Setting value for %s to %s", uri, value)
             response = requests.post(
                 f"{self._base_url}{uri}",
                 auth=auth,
@@ -161,7 +169,7 @@ class ETAHeater:
             )
             response.raise_for_status()
             _LOGGER.debug("[ETA] Successfully set %s to %s", uri, value)
-        except Exception as e:
+        except requests.exceptions.RequestException as e:
             _LOGGER.error("[ETA] Failed to set %s to %s: %s", uri, value, str(e))
             raise
 
@@ -182,19 +190,28 @@ class ETASensor(SensorEntity):
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     def update(self):
+        _LOGGER.debug("[ETA] Updating sensor: %s", self._attr_name)
         data = self._eta.get_data(self._uri)
         if data is None:
+            _LOGGER.warning("[ETA] No data received for sensor %s", self._attr_name)
+            self._state = None
             return
 
         value = data.find(".//value")
-        if value is not None:
-            try:
-                raw_value = float(value.text) / self._factor
-                self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
-                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
-            except (ValueError, TypeError):
-                self._state = value.attrib.get('strValue', 'unknown')
-                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+        if value is None:
+            _LOGGER.error("[ETA] No <value> element found in XML for sensor %s", self._attr_name)
+            self._state = None
+            return
+
+        try:
+            raw_value = float(value.text) / self._factor
+            self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
+            self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+            _LOGGER.debug("[ETA] Updated sensor %s with value: %s", self._attr_name, self._state)
+        except (ValueError, TypeError) as e:
+            _LOGGER.error("[ETA] Failed to process value for sensor %s: %s", self._attr_name, str(e))
+            self._state = value.attrib.get('strValue', 'unknown')
+            self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
 
     @property
     def state(self):
