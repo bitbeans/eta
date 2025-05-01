@@ -76,6 +76,15 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
+        "uri": "/user/var/120/10601/0/0/13932",
+        "name": "Warmwasser Aus Fühler",
+        "unit": UnitOfTemperature.CELSIUS,
+        "factor": 10.0,
+        "decimals": 1,
+        "device_class": SensorDeviceClass.TEMPERATURE,
+        "state_class": SensorStateClass.MEASUREMENT,
+    },
+    {
         "name": "Gesamt Energieverbrauch",
         "uri": "/40/10021/0/0/12016",
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
