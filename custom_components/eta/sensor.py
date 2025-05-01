@@ -36,52 +36,71 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 })
 
 def setup_platform(hass, config, add_entities, discovery_info=None):
-    host = config[CONF_HOST]
-    port = config[CONF_PORT]
-    username = config.get(CONF_USERNAME)
-    password = config.get(CONF_PASSWORD)
-    name = config[CONF_NAME]
-    polling = config[CONF_POLLING]
+    _LOGGER.debug("Starting setup of ETA platform")
+    try:
+        host = config[CONF_HOST]
+        port = config[CONF_PORT]
+        username = config.get(CONF_USERNAME)
+        password = config.get(CONF_PASSWORD)
+        name = config[CONF_NAME]
+        polling = config[CONF_POLLING]
 
-    eta = ETAHeater(host, port, username, password, name)
+        _LOGGER.debug(f"Configuring ETAHeater with host={host}, port={port}, name={name}")
+        eta = ETAHeater(host, port, username, password, name)
 
-    # Use default sensors from sensors_default.py if no sensors are specified
-    sensors_config = config.get(CONF_SENSORS)
-    if not sensors_config:
-        from .sensors_default import SENSORS_DEFAULT
-        sensors_config = SENSORS_DEFAULT
-        _LOGGER.debug("No sensors specified in config, using default sensors from sensors_default.py")
+        # Use default sensors from sensors_default.py if no sensors are specified
+        sensors_config = config.get(CONF_SENSORS)
+        if not sensors_config:
+            _LOGGER.debug("No sensors specified in config, loading default sensors")
+            from .sensors_default import SENSORS_DEFAULT
+            sensors_config = SENSORS_DEFAULT
+            _LOGGER.debug("Loaded default sensors: %s", sensors_config)
 
-    sensors = []
-    for sensor_config in sensors_config:
+        sensors = []
+        for sensor_config in sensors_config:
+            try:
+                # Validate sensor_config against SENSOR_SCHEMA
+                _LOGGER.debug("Validating sensor config: %s", sensor_config)
+                validated_config = SENSOR_SCHEMA(sensor_config)
+                sensor = ETASensor(eta, validated_config)
+                sensors.append(sensor)
+                _LOGGER.debug("Added sensor: %s", sensor._attr_name)
+            except vol.Invalid as e:
+                _LOGGER.error(f"Invalid sensor configuration: {e}")
+                continue
+
+        if not sensors:
+            _LOGGER.error("No valid sensors configured, platform setup failed")
+            return
+
+        _LOGGER.debug("Adding %d sensors to Home Assistant", len(sensors))
+        add_entities(sensors, True)
+
+        # Register service to set ETA values
+        def set_value_service(call):
+            uri = call.data.get('uri')
+            value = call.data.get('value')
+            try:
+                eta.set_eta_value(uri, value)
+                _LOGGER.info(f"Successfully set value for {uri} to {value}")
+            except Exception as e:
+                _LOGGER.error(f"Failed to set value for {uri}: {str(e)}")
+
+        _LOGGER.debug("Registering eta.set_value service")
         try:
-            # Validate sensor_config against SENSOR_SCHEMA
-            validated_config = SENSOR_SCHEMA(sensor_config)
-            sensors.append(ETASensor(eta, validated_config))
-        except vol.Invalid as e:
-            _LOGGER.error(f"Invalid sensor configuration: {e}")
-            continue
-
-    if not sensors:
-        _LOGGER.error("No valid sensors configured, platform setup failed")
-        return
-
-    add_entities(sensors, True)
-
-    # Register service to set ETA values
-    def set_value_service(call):
-        uri = call.data.get('uri')
-        value = call.data.get('value')
-        try:
-            eta.set_eta_value(uri, value)
-            _LOGGER.info(f"Successfully set value for {uri} to {value}")
+            hass.services.register('eta', 'set_value', set_value_service, schema=vol.Schema({
+                vol.Required('uri'): cv.string,
+                vol.Required('value'): cv.string,
+            }))
+            _LOGGER.debug("Successfully registered eta.set_value service")
         except Exception as e:
-            _LOGGER.error(f"Failed to set value for {uri}: {str(e)}")
+            _LOGGER.error(f"Failed to register eta.set_value service: {str(e)}")
+            raise
 
-    hass.services.register('eta', 'set_value', set_value_service, schema=vol.Schema({
-        vol.Required('uri'): cv.string,
-        vol.Required('value'): cv.string,
-    }))
+        _LOGGER.debug("ETA platform setup completed successfully")
+    except Exception as e:
+        _LOGGER.error(f"Failed to set up ETA platform: {str(e)}")
+        raise
 
 class ETAHeater:
     def __init__(self, host, port, username, password, name):
