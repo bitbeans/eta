@@ -3,7 +3,7 @@ import requests
 import voluptuous as vol
 import xml.etree.ElementTree as ET
 from datetime import timedelta
-from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorStateClass, SensorDeviceClass
+from homeassistant.components.sensor import PLATFORM_SCHEMA, SensorEntity, SensorStateClass, SensorDeviceClass
 from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
@@ -124,16 +124,18 @@ class ETAHeater:
             _LOGGER.error(f"Failed to set {uri} to {value}: {str(e)}")
             raise
 
-class ETASensor:
+class ETASensor(SensorEntity):
     def __init__(self, eta, config):
+        super().__init__()
         self._eta = eta
         self._uri = config['uri']
-        self._name = config['name']
-        self._unit = config.get('unit')
+        self._attr_name = config['name']
+        self._attr_unique_id = f"eta_sensor_{config['uri'].replace('/', '_')}"
+        self._attr_unit_of_measurement = str(config.get('unit')) if config.get('unit') else None
+        self._attr_device_class = config.get('device_class')
+        self._attr_state_class = config.get('state_class')
         self._factor = config.get('factor', 1.0)
         self._decimals = config.get('decimals', 0)
-        self._device_class = config.get('device_class')
-        self._state_class = config.get('state_class')
         self._state = None
         self._attributes = {}
 
@@ -154,26 +156,9 @@ class ETASensor:
                 self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
 
     @property
-    def name(self):
-        return self._name
-
-    @property
     def state(self):
         return self._state
 
     @property
-    def unit_of_measurement(self):
-        # Handle enum-based units by converting to string if necessary
-        return str(self._unit) if self._unit else None
-
-    @property
-    def device_class(self):
-        return self._device_class
-
-    @property
-    def state_class(self):
-        return self._state_class
-
-    @property
-    def device_state_attributes(self):
+    def extra_state_attributes(self):
         return self._attributes
