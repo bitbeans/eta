@@ -1,4 +1,6 @@
 import logging
+import sys
+import traceback
 import requests
 import voluptuous as vol
 import xml.etree.ElementTree as ET
@@ -9,7 +11,8 @@ import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
 
 _LOGGER = logging.getLogger(__name__)
-_LOGGER.debug("ETA integration module loaded")
+_LOGGER.debug("ETA integration module initialized")
+_LOGGER.debug("Python version: %s, Home Assistant module path: %s", sys.version, sys.path)
 
 CONF_POLLING = "polling"
 CONF_SENSORS = "sensors"
@@ -43,8 +46,12 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     try:
         _LOGGER.debug("Received configuration: %s", config)
         _LOGGER.debug("Validating platform configuration")
-        validated_config = PLATFORM_SCHEMA(config)
-        _LOGGER.debug("Platform configuration validated successfully: %s", validated_config)
+        try:
+            validated_config = PLATFORM_SCHEMA(config)
+            _LOGGER.debug("Platform configuration validated successfully: %s", validated_config)
+        except vol.Invalid as e:
+            _LOGGER.error("Configuration validation failed: %s", str(e))
+            raise
 
         host = validated_config[CONF_HOST]
         port = validated_config[CONF_PORT]
@@ -60,9 +67,13 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         sensors_config = validated_config.get(CONF_SENSORS)
         if not sensors_config:
             _LOGGER.debug("No sensors specified in config, loading default sensors")
-            from .sensors_default import SENSORS_DEFAULT
-            sensors_config = SENSORS_DEFAULT
-            _LOGGER.debug("Loaded default sensors: %s", sensors_config)
+            try:
+                from .sensors_default import SENSORS_DEFAULT
+                sensors_config = SENSORS_DEFAULT
+                _LOGGER.debug("Loaded default sensors: %s", sensors_config)
+            except ImportError as e:
+                _LOGGER.error("Failed to import sensors_default: %s", str(e))
+                raise
 
         sensors = []
         for sensor_config in sensors_config:
@@ -103,13 +114,14 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
             }))
             _LOGGER.debug("Successfully registered eta.set_value service")
         except Exception as e:
-            _LOGGER.error(f"Failed to register eta.set_value service: {str(e)}")
+            _LOGGER.error(f"Failed to register eta.set_value service: %s", str(e))
             raise
         """
 
         _LOGGER.debug("ETA platform setup completed successfully")
     except Exception as e:
-        _LOGGER.error(f"Failed to set up ETA platform: {str(e)}")
+        _LOGGER.error(f"Failed to set up ETA platform: %s", str(e))
+        _LOGGER.error("Exception traceback: %s", traceback.format_exc())
         raise
 
 class ETAHeater:
@@ -132,7 +144,7 @@ class ETAHeater:
             response.raise_for_status()
             return ET.fromstring(response.content)
         except Exception as e:
-            _LOGGER.error(f"Error fetching data from {uri}: {str(e)}")
+            _LOGGER.error(f"Error fetching data from {uri}: %s", str(e))
             return None
 
     def set_eta_value(self, uri, value):
@@ -150,7 +162,7 @@ class ETAHeater:
             response.raise_for_status()
             _LOGGER.debug(f"Successfully set {uri} to {value}")
         except Exception as e:
-            _LOGGER.error(f"Failed to set {uri} to {value}: {str(e)}")
+            _LOGGER.error(f"Failed to set {uri} to {value}: %s", str(e))
             raise
 
 class ETASensor(SensorEntity):
