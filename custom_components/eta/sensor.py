@@ -4,10 +4,10 @@ import voluptuous as vol
 import xml.etree.ElementTree as ET
 from datetime import timedelta
 from homeassistant.components.sensor import PLATFORM_SCHEMA
-from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_SCAN_INTERVAL, CONF_USERNAME
+from homeassistant.const import CONF_HOST, CONF_NAME, CONF_PASSWORD, CONF_PORT, CONF_USERNAME
 import homeassistant.helpers.config_validation as cv
 from homeassistant.util import Throttle
-from .sensors_default import SENSORS
+from .sensors_default import SENSOR_DEFAULTS
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -47,7 +47,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
     # Use default sensors from sensors_default.py if no sensors are specified
     sensors_config = config.get(CONF_SENSORS)
     if not sensors_config:
-        sensors_config = SENSORS
+        sensors_config = SENSOR_DEFAULTS
         _LOGGER.debug("No sensors specified in config, using default sensors from sensors_default.py")
 
     sensors = []
