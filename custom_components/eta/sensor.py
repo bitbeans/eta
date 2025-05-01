@@ -25,8 +25,8 @@ SENSOR_SCHEMA = vol.Schema({
 
 PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
     vol.Required(CONF_HOST): cv.string,
-    vol.Required(CONF_USERNAME): cv.string,
-    vol.Required(CONF_PASSWORD): cv.string,
+    vol.Optional(CONF_USERNAME): cv.string,
+    vol.Optional(CONF_PASSWORD): cv.string,
     vol.Required(CONF_NAME): cv.string,
     vol.Optional(CONF_PORT, default=8080): cv.port,
     vol.Optional(CONF_POLLING, default=30): cv.positive_int,
@@ -36,8 +36,8 @@ PLATFORM_SCHEMA = PLATFORM_SCHEMA.extend({
 def setup_platform(hass, config, add_entities, discovery_info=None):
     host = config[CONF_HOST]
     port = config[CONF_PORT]
-    username = config[CONF_USERNAME]
-    password = config[CONF_PASSWORD]
+    username = config.get(CONF_USERNAME)
+    password = config.get(CONF_PASSWORD)
     name = config[CONF_NAME]
     polling = config[CONF_POLLING]
 
@@ -82,11 +82,12 @@ class ETAHeater:
 
     def get_data(self, uri):
         try:
+            auth = (self._username, self._password) if self._username and self._password else None
             response = requests.get(
                 f"{self._base_url}{uri}",
-                auth=(self._username, self._password),
+                auth=auth,
                 timeout=10
-            )
+           
             response.raise_for_status()
             return ET.fromstring(response.content)
         except Exception as e:
@@ -97,9 +98,10 @@ class ETAHeater:
         """Set a value for the given URI via POST request."""
         try:
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
+            auth = (self._username, self._password) if self._username and self._password else None
             response = requests.post(
                 f"{self._base_url}{uri}",
-                auth=(self._username, self._password),
+                auth=auth,
                 data={"value": value},
                 headers=headers,
                 timeout=10
