@@ -18,7 +18,7 @@ SENSORS_DEFAULT = [
         "unit": "",
         "factor": 1.0,
         "decimals": 0,
-        "device_class": None,
+        "device_class": "status",
         "state_class": None,
     },
     {
