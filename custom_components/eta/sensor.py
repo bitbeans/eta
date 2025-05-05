@@ -26,8 +26,8 @@ SENSOR_SCHEMA = vol.Schema({
     vol.Optional('unit'): cv.string,
     vol.Optional('factor'): cv.positive_float,
     vol.Optional('decimals'): cv.positive_int,
-    vol.Optional('device_class'): vol.Any(cv.string, None),  # Erlaube None
-    vol.Optional('state_class'): vol.Any(cv.string, None),  # Erlaube None
+    vol.Optional('device_class'): vol.Any(cv.string, None),
+    vol.Optional('state_class'): vol.Any(cv.string, None),
 })
 
 _LOGGER.debug("[ETA] Defining PLATFORM_SCHEMA")
@@ -63,7 +63,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         _LOGGER.debug("[ETA] Configuring ETAHeater with host=%s, port=%s, name=%s", host, port, name)
         eta = ETAHeater(host, port, username, password, name)
 
-        # Use default sensors from sensors_default.py if no sensors are specified
         sensors_config = validated_config.get(CONF_SENSORS)
         if not sensors_config:
             _LOGGER.debug("[ETA] No sensors specified in config, loading default sensors")
@@ -95,7 +94,6 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         add_entities(sensors, True)
         _LOGGER.debug("[ETA] Sensors added successfully")
 
-        # Register service to set ETA values
         def set_value_service(call):
             uri = call.data.get('uri')
             value = call.data.get('value')
@@ -153,7 +151,6 @@ class ETAHeater:
             return None
 
     def set_eta_value(self, uri, value):
-        """Set a value for the given URI via POST request."""
         try:
             headers = {'Content-Type': 'application/x-www-form-urlencoded'}
             auth = (self._username, self._password) if self._username and self._password else None
@@ -195,7 +192,6 @@ class ETASensor(SensorEntity):
             self._state = None
             return
 
-        # Handle XML namespace for ETA API
         namespaces = {'eta': 'http://www.eta.co.at/rest/v1'}
         value = data.find(".//eta:value", namespaces)
         if value is None:
@@ -209,9 +205,13 @@ class ETASensor(SensorEntity):
             self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
             _LOGGER.debug("[ETA] Updated sensor %s with strValue: %s", self._attr_name, self._state)
         else:
-            # Für numerische Sensoren (z. B. Energieverbrauch, Temperatur)
+            # Für numerische Sensoren
             try:
-                raw_value = float(value.text) * self._factor  # Multiplikation statt Division
+                # Sonderfall für Gesamt Energieverbrauch: Multiplikation mit Faktor
+                if self._uri == "/user/var/40/10021/0/0/12016":
+                    raw_value = float(value.text) * self._factor  # Multiplikation für kWh
+                else:
+                    raw_value = float(value.text) / self._factor  # Division für andere Sensoren
                 self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
                 self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
                 _LOGGER.debug("[ETA] Updated sensor %s with value: %s", self._attr_name, self._state)
