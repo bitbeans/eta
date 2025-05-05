@@ -13,6 +13,15 @@ from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, Unit
 
 SENSORS_DEFAULT = [
     {
+        "uri": "/user/var/120/10601/0/0/12208",
+        "name": "Puffer",
+        "unit": "",
+        "factor": 1.0,
+        "decimals": 0,
+        "device_class": "enum",
+        "state_class": None,
+    },
+    {
         "uri": "/user/var/120/10601/0/0/12197",
         "name": "Außentemperatur",
         "unit": UnitOfTemperature.CELSIUS,
