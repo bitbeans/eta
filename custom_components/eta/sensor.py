@@ -26,8 +26,8 @@ SENSOR_SCHEMA = vol.Schema({
     vol.Optional('unit'): cv.string,
     vol.Optional('factor'): cv.positive_float,
     vol.Optional('decimals'): cv.positive_int,
-    vol.Optional('device_class'): cv.string,
-    vol.Optional('state_class'): cv.string,
+    vol.Optional('device_class'): vol.Any(cv.string, None),  # Erlaube None
+    vol.Optional('state_class'): vol.Any(cv.string, None),  # Erlaube None
 })
 
 _LOGGER.debug("[ETA] Defining PLATFORM_SCHEMA")
@@ -95,8 +95,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         add_entities(sensors, True)
         _LOGGER.debug("[ETA] Sensors added successfully")
 
-        # Register service to set ETA values (temporarily commented out for debugging)
-        
+        # Register service to set ETA values
         def set_value_service(call):
             uri = call.data.get('uri')
             value = call.data.get('value')
@@ -116,7 +115,7 @@ def setup_platform(hass, config, add_entities, discovery_info=None):
         except Exception as e:
             _LOGGER.error("[ETA] Failed to register eta.set_value service: %s", str(e))
             raise
-        
+
         _LOGGER.debug("[ETA] ETA platform setup completed successfully")
     except Exception as e:
         _LOGGER.error("[ETA] Failed to set up ETA platform: %s", str(e))
@@ -204,15 +203,22 @@ class ETASensor(SensorEntity):
             self._state = None
             return
 
-        try:
-            raw_value = float(value.text) / self._factor
-            self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
-            self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
-            _LOGGER.debug("[ETA] Updated sensor %s with value: %s", self._attr_name, self._state)
-        except (ValueError, TypeError) as e:
-            _LOGGER.error("[ETA] Failed to process value for sensor %s: %s", self._attr_name, str(e))
+        # Für Textstatus-Sensoren (z. B. Puffer Status) direkt strValue verwenden
+        if self._attr_device_class == 'status':
             self._state = value.attrib.get('strValue', 'unknown')
             self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+            _LOGGER.debug("[ETA] Updated sensor %s with strValue: %s", self._attr_name, self._state)
+        else:
+            # Für numerische Sensoren (z. B. Energieverbrauch, Temperatur)
+            try:
+                raw_value = float(value.text) * self._factor  # Multiplikation statt Division
+                self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
+                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+                _LOGGER.debug("[ETA] Updated sensor %s with value: %s", self._attr_name, self._state)
+            except (ValueError, TypeError) as e:
+                _LOGGER.error("[ETA] Failed to process value for sensor %s: %s", self._attr_name, str(e))
+                self._state = value.attrib.get('strValue', 'unknown')
+                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
 
     @property
     def state(self):
