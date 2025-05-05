@@ -14,11 +14,11 @@ from homeassistant.const import UnitOfTemperature, UnitOfPower, UnitOfMass, Unit
 SENSORS_DEFAULT = [
     {
         "uri": "/user/var/120/10601/0/0/12208",
-        "name": "Puffer",
+        "name": "Puffer Status",
         "unit": "",
         "factor": 1.0,
         "decimals": 0,
-        "device_class": "enum",
+        "device_class": None,
         "state_class": None,
     },
     {
@@ -94,12 +94,12 @@ SENSORS_DEFAULT = [
         "state_class": SensorStateClass.MEASUREMENT,
     },
     {
-        "name": "Gesamt Energieverbrauch",
         "uri": "/user/var/40/10021/0/0/12016",
+        "name": "Gesamt Energieverbrauch",
         "unit": UnitOfEnergy.KILO_WATT_HOUR,
         "device_class": SensorDeviceClass.ENERGY,
         "state_class": SensorStateClass.TOTAL_INCREASING,
-        "factor": 4.8,
+        "factor": 0.48,  # 4.8 kWh/kg / scaleFactor 10
         "decimals": 1,
     },
 ]
