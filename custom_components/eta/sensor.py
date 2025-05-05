@@ -23,7 +23,7 @@ _LOGGER.debug("[ETA] Defining SENSOR_SCHEMA")
 SENSOR_SCHEMA = vol.Schema({
     vol.Required('uri'): cv.string,
     vol.Required('name'): cv.string,
-    vol.Optional('unit'): cv.string,
+    vol.Optional('unit'): vol.Any(cv.string, None),
     vol.Optional('factor'): cv.positive_float,
     vol.Optional('decimals'): cv.positive_int,
     vol.Optional('device_class'): vol.Any(cv.string, None),
@@ -175,7 +175,7 @@ class ETASensor(SensorEntity):
         self._uri = config['uri']
         self._attr_name = f"ETA {config['name']}"
         self._attr_unique_id = f"eta_sensor_{config['uri'].replace('/', '_')}"
-        self._attr_unit_of_measurement = str(config.get('unit')) if config.get('unit') else None
+        self._attr_unit_of_measurement = config.get('unit')  # Verwende Einheit direkt
         self._attr_device_class = config.get('device_class')
         self._attr_state_class = config.get('state_class')
         self._factor = config.get('factor', 1.0)
@@ -202,7 +202,7 @@ class ETASensor(SensorEntity):
         # Für Textstatus-Sensoren (z. B. Puffer Status) direkt strValue verwenden
         if self._attr_device_class == 'status':
             self._state = value.attrib.get('strValue', 'unknown')
-            self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+            self._attributes = {k: v for k, v in value.attrib.items() if k not in ['uri', 'unit']}
             _LOGGER.debug("[ETA] Updated sensor %s with strValue: %s", self._attr_name, self._state)
         else:
             # Für numerische Sensoren
@@ -213,12 +213,12 @@ class ETASensor(SensorEntity):
                 else:
                     raw_value = float(value.text) / self._factor  # Division für andere Sensoren
                 self._state = round(raw_value, self._decimals) if self._decimals > 0 else int(raw_value)
-                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
-                _LOGGER.debug("[ETA] Updated sensor %s with value: %s", self._attr_name, self._state)
+                self._attributes = {k: v for k, v in value.attrib.items() if k not in ['uri', 'unit']}
+                _LOGGER.debug("[ETA] Updated sensor %s with value: %s, unit: %s", self._attr_name, self._state, self._attr_unit_of_measurement)
             except (ValueError, TypeError) as e:
                 _LOGGER.error("[ETA] Failed to process value for sensor %s: %s", self._attr_name, str(e))
                 self._state = value.attrib.get('strValue', 'unknown')
-                self._attributes = {k: v for k, v in value.attrib.items() if k != 'uri'}
+                self._attributes = {k: v for k, v in value.attrib.items() if k not in ['uri', 'unit']}
 
     @property
     def state(self):
